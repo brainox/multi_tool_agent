@@ -1,35 +1,67 @@
-from google.adk.agents import LlmAgent
-from google.adk.tools import google_search
+import datetime
+from zoneinfo import ZoneInfo
+from google.adk.agents import Agent
 
-MODEL="gemini-2.0-flash-001"
+def get_weather(city: str) -> dict:
+    """Retrieves the current weather report for a specified city.
 
-idea_agent = LlmAgent(
-    model=MODEL,
-    name="IdeaAgent",
-    description="Brainstorms creative and exciting weekend travel ideas based on user preferences or requests.",
-    instruction="You are a creative travel agent. Use the tool to brainstorm and respond to the user with 3 exciting weekend trip ideas based on the user's request.",
-    disallow_transfer_to_peers=True,
-)
+    Args:
+        city (str): The name of the city for which to retrieve the weather report.
 
-refiner_agent = LlmAgent(
-    model=MODEL,
-    name="RefinerAgent",
-    description="Reviews provided travel ideas and selects only those estimated to cost under the provided budget for a weekend trip.",
-    instruction="Use your tools to review the provided trip ideas. Respond ONLY with the ideas likely under the provided budget for a weekend. If none seem to fit, say so.",
-    tools=[google_search],
-    disallow_transfer_to_peers=True,
-)
+    Returns:
+        dict: status and result or error msg.
+    """
+    if city.lower() == "new york":
+        return {
+            "status": "success",
+            "report": (
+                "The weather in New York is sunny with a temperature of 25 degrees"
+                " Celsius (41 degrees Fahrenheit)."
+            ),
+        }
+    else:
+        return {
+            "status": "error",
+            "error_message": f"Weather information for '{city}' is not available.",
+        }
 
-root_agent = LlmAgent(
-    model=MODEL,
+
+def get_current_time(city: str) -> dict:
+    """Returns the current time in a specified city.
+
+    Args:
+        city (str): The name of the city for which to retrieve the current time.
+
+    Returns:
+        dict: status and result or error msg.
+    """
+
+    if city.lower() == "new york":
+        tz_identifier = "America/New_York"
+    else:
+        return {
+            "status": "error",
+            "error_message": (
+                f"Sorry, I don't have timezone information for {city}."
+            ),
+        }
+
+    tz = ZoneInfo(tz_identifier)
+    now = datetime.datetime.now(tz)
+    report = (
+        f'The current time in {city} is {now.strftime("%Y-%m-%d %H:%M:%S %Z%z")}'
+    )
+    return {"status": "success", "report": report}
+
+
+root_agent = Agent(
+    name="weather_time_agent",
+    model="gemini-2.0-flash",
     description=(
-        "Agent to plan a trip."
+        "Agent to answer questions about the time and weather in a city."
     ),
-    instruction=f"""You are a Trip Planner, coordinating specialist agents.
-    Your goal is to provide budget-friendly weekend trip ideas. For each user request, follow the below instructions:
-        1. First, use "{idea_agent}" to brainstorm ideas based on the user's request.
-        2. Then, use "{refiner_agent}" to take those ideas to filter them for the provided budget.
-        3. Present the final, refined list to the user along with the budget.
-    """,
-    sub_agents=[idea_agent, refiner_agent],
+    instruction=(
+        "You are a helpful agent who can answer user questions about the time and weather in a city."
+    ),
+    tools=[get_weather, get_current_time],
 )
